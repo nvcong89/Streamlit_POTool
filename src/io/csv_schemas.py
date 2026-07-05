@@ -45,6 +45,15 @@ SECTION_INPUT_FIELDS = [
     "e_cmax_model",
     "e_smax_model",
     "code",
+    "Pmin",
+    "Pmax",
+    "Lp",
+    "ec_MD",
+    "ec_CD",
+    "ec_ED",
+    "es_MD",
+    "es_CD",
+    "es_ED",
 ]
 
 MC_REQUIRED_FIELDS = ["P", "M", "curvature"]
@@ -53,12 +62,12 @@ MC_OPTIONAL_FIELDS = [c for c in MC_RESULT_COLUMNS if c not in MC_REQUIRED_FIELD
 MATERIAL_CURVE_FIELDS = ["material", "strain", "stress"]
 
 DEFAULT_SECTION_VALUES: Dict[str, float | str] = {
-    "D": 1200.0,
-    "D_bearing": 1220.0,
+    "D": 680.0,
+    "D_bearing": 700.0,
     "phi_main": 32.0,
-    "n_bar": 20.0,
+    "n_bar": 12.0,
     "phi_link": 10.0,
-    "cover": 75.0,
+    "cover": 40.0,
     "f_ce": 40.0,
     "e_c0": 0.002,
     "e_cu0": 0.004,
@@ -69,7 +78,7 @@ DEFAULT_SECTION_VALUES: Dict[str, float | str] = {
     "e_ccu": 0.015,
     "r_cc": 1.5,
     "f_cc": 48.0,
-    "e_ye": 0.002,
+    "e_ye": 0.00275,
     "e_sh": 0.005,
     "e_smd": 0.08,
     "f_ye": 500.0,
@@ -81,20 +90,204 @@ DEFAULT_SECTION_VALUES: Dict[str, float | str] = {
     "f_ye_bearing": 355.0,
     "f_ue_bearing": 510.0,
     "Es_bearing": 200000.0,
-    "P_start": -8000.0,
-    "P_end": 8000.0,
+    "P_start": -3184.8,
+    "P_end": 14182.8,
     "e_ccmax_model": 0.015,
     "e_cmax_model": 0.025,
     "e_smax_model": 0.12,
     "code": "ASCE 61-14",
+    "Pmin": -10616.0,
+    "Pmax": 28365.0,
+    "Lp": 1.083,
+    "ec_MD": 0.004973,
+    "ec_CD": 0.008574,
+    "ec_ED": 0.012862,
+    "es_MD": 0.0145,
+    "es_CD": 0.025,
+    "es_ED": 0.05,
 }
 
 
 def load_csv_upload(uploaded_file) -> pd.DataFrame:
     name = uploaded_file.name.lower()
+    if name.endswith(".xlsm"):
+        return parse_mc_data_xlsm(uploaded_file)["mc_results"]
     if name.endswith(".xlsx") or name.endswith(".xls"):
         return pd.read_excel(uploaded_file)
     return pd.read_csv(uploaded_file)
+
+
+def _cell_float(ws, addr: str, default: float = 0.0) -> float:
+    val = ws[addr].value
+    if val is None:
+        return default
+    return float(val)
+
+
+def _open_mc_data_workbook(source):
+    """Open workbook and return MC_Data worksheet."""
+    import openpyxl
+
+    if hasattr(source, "read"):
+        if hasattr(source, "seek"):
+            source.seek(0)
+        wb = openpyxl.load_workbook(source, read_only=True, data_only=True)
+    else:
+        wb = openpyxl.load_workbook(source, read_only=True, data_only=True)
+
+    if "MC_Data" not in wb.sheetnames:
+        wb.close()
+        raise ValueError("Workbook must contain an 'MC_Data' sheet.")
+    return wb, wb["MC_Data"]
+
+
+def _parse_mc_data_input_ws(ws) -> Dict:
+    """
+    Parse MC_Data input region (A1:S20, values rows 4–19).
+
+    Cell map matches Excel MC Analysis workbook layout.
+    """
+    section = dict(DEFAULT_SECTION_VALUES)
+    section.update(
+        {
+            "D": _cell_float(ws, "B4"),
+            "D0": _cell_float(ws, "B5"),
+            "phi_main": _cell_float(ws, "B6"),
+            "n_bar": _cell_float(ws, "B7"),
+            "phi_link": _cell_float(ws, "B8"),
+            "cover": _cell_float(ws, "B9"),
+            "D_bearing": _cell_float(ws, "B10"),
+            "f_ce": _cell_float(ws, "E4"),
+            "e_c0": _cell_float(ws, "H4"),
+            "e_cu0": _cell_float(ws, "H5"),
+            "e_spall": _cell_float(ws, "H6"),
+            "r_c": _cell_float(ws, "H7"),
+            "f_cu": _cell_float(ws, "H8"),
+            "e_cc": _cell_float(ws, "K4"),
+            "e_ccu": _cell_float(ws, "K5"),
+            "r_cc": _cell_float(ws, "K6"),
+            "f_cc": _cell_float(ws, "K7"),
+            "e_ye": _cell_float(ws, "N4"),
+            "e_sh": _cell_float(ws, "N5"),
+            "e_smd": _cell_float(ws, "N6"),
+            "f_ye": _cell_float(ws, "N7"),
+            "f_ue": _cell_float(ws, "N8"),
+            "Es": _cell_float(ws, "N9"),
+            "e_ye_bearing": _cell_float(ws, "Q4"),
+            "e_sh_bearing": _cell_float(ws, "Q5"),
+            "e_smd_bearing": _cell_float(ws, "Q6"),
+            "f_ye_bearing": _cell_float(ws, "Q7"),
+            "f_ue_bearing": _cell_float(ws, "Q8"),
+            "Es_bearing": _cell_float(ws, "Q9"),
+            "Lp": _cell_float(ws, "H12"),
+            "ec_MD": _cell_float(ws, "B13"),
+            "ec_CD": _cell_float(ws, "D13"),
+            "ec_ED": _cell_float(ws, "F13"),
+            "es_MD": _cell_float(ws, "B14"),
+            "es_CD": _cell_float(ws, "D14"),
+            "es_ED": _cell_float(ws, "F14"),
+            "Pmin": _cell_float(ws, "B16"),
+            "Pmax": _cell_float(ws, "B17"),
+            "P_start": _cell_float(ws, "B18"),
+            "P_end": _cell_float(ws, "B19"),
+            "e_ccmax_model": _cell_float(ws, "E16"),
+            "e_cmax_model": _cell_float(ws, "E17"),
+            "e_smax_model": _cell_float(ws, "E18"),
+        }
+    )
+    return _coerce_section_types(section)
+
+
+def parse_mc_data_input(source) -> Dict:
+    """
+    Parse section input only from MC_Data sheet (A1:S20).
+
+    Returns section_input dict suitable for run_mc_analysis().
+    """
+    wb, ws = _open_mc_data_workbook(source)
+    try:
+        return _parse_mc_data_input_ws(ws)
+    finally:
+        wb.close()
+
+
+def parse_mc_data_xlsm(source, inputs_only: bool = False) -> Dict:
+    """
+    Parse MC_Data sheet from Excel workbook (.xlsm/.xlsx).
+
+    Returns dict with keys: section_input, mc_results, pm_summary (optional).
+
+    When inputs_only=True, mc_results and pm_summary are None.
+    """
+    wb, ws = _open_mc_data_workbook(source)
+    section = _parse_mc_data_input_ws(ws)
+
+    if inputs_only:
+        wb.close()
+        return {
+            "section_input": section,
+            "mc_results": None,
+            "pm_summary": None,
+        }
+
+    mc_rows = []
+    for row in ws.iter_rows(min_row=25, min_col=1, max_col=9, values_only=True):
+        if row[0] is None or str(row[0]).strip() == "":
+            continue
+        if str(row[0]).lower() in ("no.", "output"):
+            continue
+        try:
+            mc_rows.append(
+                {
+                    "Point_Name": str(row[0]),
+                    "P": float(row[1] or 0),
+                    "M": float(row[2] or 0),
+                    "e_cc": float(row[3] or 0),
+                    "e_c": float(row[4] or 0),
+                    "e_s": float(row[5] or 0),
+                    "x": float(row[6] or 0),
+                    "curvature": float(row[7] or 0),
+                    "F_error": float(row[8] or 0),
+                }
+            )
+        except (TypeError, ValueError):
+            continue
+
+    pm_rows = []
+    for row in ws.iter_rows(min_row=25, min_col=11, max_col=22, values_only=True):
+        if row[0] is None or str(row[0]).strip() == "":
+            continue
+        if str(row[0]).lower() == "point":
+            continue
+        try:
+            point_name = str(row[0])
+            pm_rows.append(
+                {
+                    "Point": point_name,
+                    "P": float(row[1] or 0),
+                    "Mp": float(row[2] or 0),
+                    "Fy": float(row[3] or 0),
+                    "FmOLE": float(row[4] or 0),
+                    "FmCLE": float(row[5] or 0),
+                    "FmDE": float(row[6] or 0),
+                    "Fultimate": float(row[7] or 0),
+                    "qp_mOLE": float(row[8] or 0),
+                    "qp_mCLE": float(row[9] or 0),
+                    "qp_mDE": float(row[10] or 0),
+                    "qUltimate": float(row[11] or 0),
+                }
+            )
+            if len(pm_rows) >= 60:
+                break
+        except (TypeError, ValueError):
+            continue
+
+    wb.close()
+    return {
+        "section_input": section,
+        "mc_results": pd.DataFrame(mc_rows, columns=MC_RESULT_COLUMNS),
+        "pm_summary": pd.DataFrame(pm_rows) if pm_rows else None,
+    }
 
 
 def parse_section_input(df: pd.DataFrame, column_map: Optional[Dict[str, str]] = None) -> Dict:

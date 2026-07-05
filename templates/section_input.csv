@@ -1,10 +1,10 @@
 parameter,value
-D,1200
-D_bearing,1220
+D,680
+D_bearing,700
 phi_main,32
-n_bar,20
+n_bar,12
 phi_link,10
-cover,75
+cover,40
 f_ce,40
 e_c0,0.002
 e_cu0,0.004
@@ -15,7 +15,7 @@ e_cc,0.0035
 e_ccu,0.015
 r_cc,1.5
 f_cc,48
-e_ye,0.002
+e_ye,0.00275
 e_sh,0.005
 e_smd,0.08
 f_ye,500
@@ -27,9 +27,18 @@ e_smd_bearing,0.05
 f_ye_bearing,355
 f_ue_bearing,510
 Es_bearing,200000
-P_start,-8000
-P_end,8000
+P_start,-3184.8
+P_end,14182.8
 e_ccmax_model,0.015
 e_cmax_model,0.025
 e_smax_model,0.12
 code,ASCE 61-14
+Pmin,-10616
+Pmax,28365
+Lp,1.083
+ec_MD,0.004973
+ec_CD,0.008574
+ec_ED,0.012862
+es_MD,0.0145
+es_CD,0.025
+es_ED,0.05

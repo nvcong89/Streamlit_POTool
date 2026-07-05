@@ -28,6 +28,19 @@ def create_P_array(P_start: float, P_end: float, n_Pmin: int = 12, n_Pmax: int =
     return arr
 
 
+def create_excel_pm_P_array(
+    Pmin: float,
+    Pmax: float,
+    P_start: float,
+    P_end: float,
+    n_Pmin: int = 12,
+    n_Pmax: int = 46,
+) -> np.ndarray:
+    """60-point axial load grid: Pmin + interior(P_start..P_end) + Pmax (Excel MC_Data)."""
+    interior = create_P_array(P_start, P_end, n_Pmin, n_Pmax)
+    return np.concatenate([[Pmin], interior, [Pmax]])
+
+
 def create_strain_array(e_max: float, n_steps: int = 100) -> np.ndarray:
     return np.linspace(0.0, e_max, n_steps)
 
@@ -38,6 +51,7 @@ def run_mc_analysis(
     n_Pmax: int = 46,
     n_strain_steps: int = 100,
     progress_callback=None,
+    use_excel_pm_grid: bool = False,
 ) -> List[Dict]:
     """
     Run full P–strain sweep and return list of M-φ result dicts.
@@ -50,7 +64,17 @@ def run_mc_analysis(
         raise ValueError("Invalid section input:\n" + "\n".join(f"  - {e}" for e in errors))
 
     section = SectionAnalysis()
-    P_array = create_P_array(data["P_start"], data["P_end"], n_Pmin, n_Pmax)
+    if use_excel_pm_grid:
+        P_array = create_excel_pm_P_array(
+            data.get("Pmin", data["P_start"]),
+            data.get("Pmax", data["P_end"]),
+            data["P_start"],
+            data["P_end"],
+            n_Pmin,
+            n_Pmax,
+        )
+    else:
+        P_array = create_P_array(data["P_start"], data["P_end"], n_Pmin, n_Pmax)
     strain_array = create_strain_array(data["e_cmax_model"], n_strain_steps)
 
     results: List[Dict] = []

@@ -71,6 +71,55 @@ def plot_mc_family(mc_df: pd.DataFrame, selected_P: Optional[float] = None) -> g
     return fig
 
 
+def plot_pm_curve(pm_df: pd.DataFrame, mirror: bool = True) -> go.Figure:
+    """P (kN) vs Mp (kNm) interaction envelope."""
+    env = pm_df.sort_values("P")
+    pos = env[env["Mp"] > 0]
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=pos["P"],
+            y=pos["Mp"],
+            mode="lines+markers",
+            name="P–M envelope",
+            line=dict(color="#2563eb", width=2),
+            marker=dict(size=6),
+        )
+    )
+    if mirror:
+        fig.add_trace(
+            go.Scatter(
+                x=-pos["P"],
+                y=pos["Mp"],
+                mode="lines",
+                name="SAP mirror",
+                line=dict(color="#6b7280", width=1, dash="dot"),
+            )
+        )
+
+    endpoints = pm_df[pm_df["Point"].isin(["Pmin", "Pmax"])]
+    if not endpoints.empty:
+        fig.add_trace(
+            go.Scatter(
+                x=endpoints["P"],
+                y=[0.0] * len(endpoints),
+                mode="markers",
+                name="Axial limits",
+                marker=dict(size=10, color="#dc2626", symbol="x"),
+            )
+        )
+
+    fig.update_layout(
+        title="P–M Interaction Curve",
+        xaxis_title="Axial load P (kN)",
+        yaxis_title="Moment capacity Mp (kNm)",
+        height=500,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig
+
+
 def plot_mc_single_with_hinge(
     mc_df: pd.DataFrame, hinge: HingeBackbone, P_target: float
 ) -> go.Figure:
